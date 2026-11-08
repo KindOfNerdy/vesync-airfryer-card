@@ -4,7 +4,7 @@
  * Colors and fonts come only from the Home Assistant theme.
  */
 
-const CARD_VERSION = "0.5.1";
+const CARD_VERSION = "0.5.2";
 
 const TEXT = {
   en: {
@@ -144,7 +144,7 @@ const STATUS_COLOR = {
 
 const ACTIVE = ["cooking", "heating", "hold"];
 const PAUSED = ["cooking_stop", "preheat_stop"];
-const STOPPABLE = ["ready", ...ACTIVE, ...PAUSED];
+const STOPPABLE = ["ready", "cooking_end", ...ACTIVE, ...PAUSED];
 
 class VesyncAirfryerCard extends HTMLElement {
   constructor() {
@@ -159,6 +159,7 @@ class VesyncAirfryerCard extends HTMLElement {
     this._message = "";
     this._bothOpen = false;
     this._settingsOpen = false;
+    this._recipesOpen = false;
     this._recipeCfg = {};
     this._recipeList = [];
     this._recipeSrc = null;
@@ -181,6 +182,10 @@ class VesyncAirfryerCard extends HTMLElement {
             option: el.dataset.value,
           })
           .catch((err) => this._error(err));
+      }
+      if (el.dataset.act === "toggle-recipes") {
+        this._recipesOpen = !this._recipesOpen;
+        this._refresh();
       }
       if (el.dataset.act === "toggle-settings") {
         this._settingsOpen = !this._settingsOpen;
@@ -522,6 +527,7 @@ class VesyncAirfryerCard extends HTMLElement {
       this._message,
       this._bothOpen,
       this._settingsOpen,
+      this._recipesOpen,
       this._direct,
       this._confirmStop,
       this._recipeSig(),
@@ -681,9 +687,22 @@ class VesyncAirfryerCard extends HTMLElement {
           <ha-icon class="go" icon="${this._direct ? "mdi:play" : "mdi:send"}"></ha-icon></button>`;
       })
       .join("");
-    return `<div class="recipes">
+    const body = tiles ? `<div class="tiles">${tiles}</div>` : `<div class="note">${this._t("no_recipes")}</div>`;
+    // The recipes-only variant always shows the list; otherwise it folds like the other sections.
+    if (this._config.mode === "recipes") {
+      return `<div class="recipes">
       <div class="recipes-head"><span>${this._t("recipes")}</span>${picker}</div>
-      ${tiles ? `<div class="tiles">${tiles}</div>` : `<div class="note">${this._t("no_recipes")}</div>`}
+      ${body}
+    </div>`;
+    }
+    const open = this._recipesOpen;
+    const toggle = `<button class="both-toggle" data-act="toggle-recipes" aria-expanded="${open}">
+        <span>${this._t("recipes")}</span><ha-icon icon="${open ? "mdi:chevron-up" : "mdi:chevron-down"}"></ha-icon></button>`;
+    if (!open) return `<div class="both">${toggle}</div>`;
+    return `<div class="both">${toggle}</div>
+    <div class="recipes">
+      ${picker ? `<div class="recipes-pick">${picker}</div>` : ""}
+      ${body}
     </div>`;
   }
 
@@ -976,6 +995,8 @@ class VesyncAirfryerCard extends HTMLElement {
         .recipes { margin-top: 12px; }
         .recipes-head { display: flex; align-items: center; justify-content: space-between; gap: 12px;
           min-height: 40px; font-size: 14px; color: var(--secondary-text-color); }
+        .recipes-pick { display: flex; justify-content: flex-end; margin: 8px 0; }
+        .recipes-pick .mode button { min-height: 32px; font-size: 13px; padding: 0 10px; }
         .recipes-head .mode button { min-height: 32px; font-size: 13px; padding: 0 10px; }
         .tiles { display: grid; grid-template-columns: 1fr; gap: 6px; margin-top: 4px; }
         .recipe { all: unset; box-sizing: border-box; display: flex; align-items: center; gap: 10px; padding: 10px 12px;
