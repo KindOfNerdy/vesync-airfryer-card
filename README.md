@@ -17,7 +17,7 @@ One card, three variants:
 
 ## Installation
 
-**Home Assistant 2026.11 and later (Marketplace):** open *Settings → Marketplace*, choose *Add from link* and enter `https://github.com/KindOfNerdy/vesync-airfryer-card`. (Adding a link needs a connected GitHub account in the Marketplace.)
+**Home Assistant 2026.11 and later (Marketplace):** open *Settings → Marketplace*, choose *Add from link* and enter `https://github.com/KindOfNerdy/vesync-airfryer-card`.
 
 **Earlier versions (HACS):**
 
@@ -59,13 +59,13 @@ The card finds the air fryer's entities itself. Set `device_id` only if you have
 
 ### Pictures
 
-The card shows icons by default. To use your own pictures, put them below `/config/www` and reference them:
+By default the card shows Material Design icons: `mdi:french-fries` for the appliance and `mdi:tray-full` for a basket. To use your own pictures, put them below `/config/www` and reference them:
 
 ```yaml
 images:
   device: /local/air_fryer/device.webp
   basket: /local/air_fryer/basket_{n}.webp      # {n} becomes 1 or 2
-  basket_out: /local/air_fryer/basket_out_{n}.webp
+  basket_out: /local/air_fryer/basket_out_{n}.webp  # basket pulled out
 ```
 
 ## Recipes
@@ -75,7 +75,8 @@ images:
    [![Open your Home Assistant instance and show the blueprint import dialog with a specific blueprint pre-filled.](https://my.home-assistant.io/badges/blueprint_import.svg)](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2FKindOfNerdy%2Fvesync-airfryer-card%2Fblob%2Fmain%2Fblueprints%2Fscript%2Fturbo_tower_recipe.yaml)
 
 2. Create a script from the blueprint "Turbo Tower recipe" (program, temperature, time, basket).
-3. Give the script a name and an icon, and add a label of your choice (create it first if needed) and select it as `recipe_label` in the card's settings. It then shows up in the card. If you name the label **Airfryer-Rezept** (ID `airfryer_rezept`), you need no setting at all.
+3. Give the script a name and an icon (without an icon the card shows `mdi:chef-hat`).
+4. Add a label to the script (create it first if needed) and select it as `recipe_label` in the card's settings. The script then shows up in the card. If you name the label **Airfryer-Rezept** (ID `airfryer_rezept`), no setting is needed.
 
 The blueprint is a starting point; any script that carries the recipe label is listed. The blueprint cannot set a script's name, icon or label, so do that in the script's settings.
 
