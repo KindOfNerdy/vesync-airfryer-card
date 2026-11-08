@@ -67,7 +67,8 @@ Every start either **starts** cooking right away or **sends** the values to the 
 | Option | Default | Description |
 |---|---|---|
 | `mode` | `full` | `full` (controls and recipes), `control` or `recipes` |
-| `hide` | – | Sections to hide: `header`, `both` (both baskets), `settings` |
+| `hide` | – | Sections to hide: `header`, `form` (program, temperature and time of each basket), `both` (both baskets), `settings` |
+| `name` | device name | Title in the header |
 | `device_id` | first air fryer | Device of the air fryer |
 | `direct_start_entity` | – | `input_boolean` for start/send, see above |
 | `basket_entity` | – | `input_select` for the recipe basket, see above |

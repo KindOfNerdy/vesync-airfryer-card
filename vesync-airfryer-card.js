@@ -4,7 +4,7 @@
  * Colors and fonts come only from the Home Assistant theme.
  */
 
-const CARD_VERSION = "0.5.0";
+const CARD_VERSION = "0.5.1";
 
 const TEXT = {
   en: {
@@ -41,6 +41,9 @@ const TEXT = {
     ed_hide_header: "Header",
     ed_hide_both: "Both baskets",
     ed_hide_settings: "Settings",
+    ed_hide_form: "Program, temperature and time",
+    ed_name: "Title",
+    ed_h_name: "Replaces the device name in the header",
     ed_device_id: "Air fryer",
     ed_h_device_id: "Leave empty if you have only one VeSync air fryer",
     ed_direct_start_entity: "Start-now helper",
@@ -94,6 +97,9 @@ const TEXT = {
     ed_hide_header: "Kopf",
     ed_hide_both: "Beide Körbe",
     ed_hide_settings: "Einstellungen",
+    ed_hide_form: "Programm, Temperatur und Zeit",
+    ed_name: "Titel",
+    ed_h_name: "Ersetzt den Gerätenamen im Kopf",
     ed_device_id: "Airfryer",
     ed_h_device_id: "Leer lassen, wenn du nur einen VeSync-Airfryer hast",
     ed_direct_start_entity: "Helfer „Sofort starten“",
@@ -224,8 +230,9 @@ class VesyncAirfryerCard extends HTMLElement {
         },
         {
           name: "hide",
-          selector: { select: { multiple: true, mode: "list", options: options(["header", "both", "settings"], "ed_hide_") } },
+          selector: { select: { multiple: true, mode: "list", options: options(["header", "form", "both", "settings"], "ed_hide_") } },
         },
+        { name: "name", selector: { text: {} }, visible: notRecipes },
         { name: "device_id", selector: { device: { filter: { integration: "vesync" } } } },
         { name: "direct_start_entity", selector: { entity: { filter: { domain: "input_boolean" } } } },
         { name: "confirm_stop", default: true, selector: { boolean: {} }, visible: notRecipes },
@@ -795,11 +802,11 @@ class VesyncAirfryerCard extends HTMLElement {
           ${slotB.enabled ? this._btn({ ...slotB, iconOnly: true }) : ""}
           ${this._btn({ ...slotA, primary: true, iconOnly: true })}
         </div>
-        <div class="form">
+        ${this._hide.includes("form") ? "" : `<div class="form">
           ${this._select(this._ent("basket_program", n), f.idle)}
           ${this._stepper(this._ent("basket_temperature", n), f.idle)}
           ${this._stepper(this._ent("basket_time", n), f.idle)}
-        </div>
+        </div>`}
         ${showBar ? `<div class="bar"><div style="width:${pct}%;background:${color}"></div></div>` : ""}
       </div>`;
   }
@@ -808,7 +815,7 @@ class VesyncAirfryerCard extends HTMLElement {
     const hass = this._hass;
     const a = this._state("cook_status", "1");
     const b = this._state("cook_status", "2");
-    const name = this._found.deviceName || "Air fryer";
+    const name = this._config.name || this._found.deviceName || "Air fryer";
     const sub = !a ? "" : !b || a.state === b.state
       ? hass.formatEntityState(a)
       : `${hass.formatEntityState(a)} · ${hass.formatEntityState(b)}`;
@@ -876,10 +883,14 @@ class VesyncAirfryerCard extends HTMLElement {
       </div>`;
   }
 
+  get _hide() {
+    return Array.isArray(this._config.hide) ? this._config.hide : [];
+  }
+
   _render() {
     const mode = this._config.mode;
     let body = "";
-    const hide = Array.isArray(this._config.hide) ? this._config.hide : [];
+    const hide = this._hide;
     if (mode !== "recipes") {
       if (!hide.includes("header")) body += this._header();
       body += `<div class="baskets">${this._basket("1")}${this._basket("2")}</div>`;
