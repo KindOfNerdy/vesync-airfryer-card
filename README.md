@@ -2,6 +2,8 @@
 
 A Lovelace card for dual-basket VeSync air fryers (developed for the Cosori Turbo Tower Pro, `CAF-DC111S-AEU`): status, controls and a recipe list in one card. Colors, fonts and texts follow your Home Assistant theme and language.
 
+<img src="docs/screenshot.png" alt="The card in the default theme without pictures" width="320">
+
 One card, three variants:
 
 | `mode` | Shows |
