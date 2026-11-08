@@ -38,6 +38,19 @@ mode: full
 
 The card finds the air fryer's entities itself. Set `device_id` only if you have more than one VeSync air fryer.
 
+### What you create yourself
+
+The card needs nothing but the integration. Everything below is optional, and you name it as you like:
+
+| You create | Needed for | Where it shows up in the card |
+|---|---|---|
+| **Recipe scripts** (from the blueprint, see [Recipes](#recipes)) | Recipes | One tile per script in the **Recipes** list. Tap = run. |
+| **A label** on those scripts (any name, selected as `recipe_label`) | Telling the card which scripts are recipes | Not shown; it only decides which scripts are listed. |
+| **An `input_select` helper** whose options contain the basket number, e.g. `Basket 1 · top` and `Basket 2 · bottom` (`basket_entity`) | Recipes that use "basket from helper" | The basket switch next to the **Recipes** heading. |
+| **An `input_boolean` helper** (`direct_start_entity`) | A start/send choice shared with scripts and other dashboards | The **Action button** switch under **Settings** (start right away or only send). |
+
+Without the helpers the card still works: the basket is set in the recipe itself, and the start/send choice is remembered by the browser.
+
 ### Options
 
 | Option | Default | Description |
