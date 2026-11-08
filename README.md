@@ -51,6 +51,17 @@ The card needs nothing but the integration. Everything below is optional, and yo
 
 Without the helpers the card still works: the basket is set in the recipe itself, and the start/send choice is remembered by the browser.
 
+### Start or send
+
+Every start can do one of two things: **start** cooking right away, or **send** the values to the appliance, where you confirm with the Start button on its display. You can choose this in two places:
+
+| Where | What it controls |
+|---|---|
+| **The card**: switch "Action button" under *Settings* | The action buttons of the baskets and the "Both baskets" buttons in the card |
+| **The recipe script**: blueprint input "Start immediately" | That one recipe, whenever it runs (card, voice, automation) |
+
+The two are independent unless you connect them with one `input_boolean` helper: set it as `direct_start_entity` in the card **and** as "Start-immediately helper" in the blueprint. Then there is one switch (on = start right away, off = only send), and the card and all recipes follow it.
+
 ### Options
 
 | Option | Default | Description |
@@ -58,7 +69,7 @@ Without the helpers the card still works: the basket is set in the recipe itself
 | `mode` | `full` | `full`, `control` or `recipes` |
 | `hide` | – | Sections to hide: `header`, `both` (both baskets), `settings` |
 | `device_id` | first air fryer | Device of the air fryer |
-| `direct_start_entity` | – | Optional `input_boolean` behind the "Action button" switch in the card's settings. On = start right away, off = only send the values to the appliance. Recipe scripts can read the same helper. Without a helper the browser remembers the choice. |
+| `direct_start_entity` | – | Optional `input_boolean` behind the "Action button" switch in the card's settings. On = start right away, off = only send. Recipe scripts can use the same helper (blueprint input "Start-immediately helper"). Without a helper the browser remembers the choice. |
 | `confirm_stop` | `true` | Tap Stop twice: the first tap asks, the second stops. Off = the first tap stops. |
 | `basket_entity` | – | Optional `input_select` for recipes whose basket is taken from a helper |
 | `recipe_label` | `airfryer_rezept` | Label (or list of labels) that marks recipe scripts. Any label works; set the one you use, the default is only a fallback |
@@ -69,7 +80,7 @@ Without the helpers the card still works: the basket is set in the recipe itself
 ### How it works
 
 - **Controls:** each basket has a status, a form (program, temperature, time) and one action button that is Start, Send, Pause or Resume depending on the state, plus Stop when there is something to stop. Temperature and time offer the values the appliance allows for the program (a picker, or the +/- buttons). "Both baskets" and the settings are collapsed below; both can be hidden with `hide`.
-- **Start or send:** the switch in the card's settings decides whether the action button starts cooking right away or only sends the values to the appliance, where you confirm on the display. If you set `direct_start_entity`, the switch is that helper, so every dashboard and script sees the same state. If you hide the settings section, change the helper instead.
+- **Start or send:** see [Start or send](#start-or-send). If you hide the settings section, change the helper instead.
 - **Recipes:** every script that carries the recipe label is a recipe (see `recipe_label`). Tap it to run it. Program, temperature and time are read from the script's configuration, which needs an administrator account; for other users the tile still works, only the details line stays empty.
 
 ### Pictures
