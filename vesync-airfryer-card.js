@@ -763,9 +763,10 @@ class VesyncAirfryerCard extends HTMLElement {
     let showBar = false;
     if (end && !EMPTY.includes(end.state)) {
       const endDate = new Date(end.state);
+      // "End time" is rounded to whole minutes by the integration, so round (not ceil) the minutes left.
       const rem = Math.max(0, endDate - Date.now());
       const clock = endDate.toLocaleTimeString(hass.language, { hour: "2-digit", minute: "2-digit" });
-      lines.push(`${this._t("done_at")} ${clock} · ${this._t("left", { n: Math.ceil(rem / 60000) })}`);
+      lines.push(`${this._t("done_at")} ${clock} · ${this._t("left", { n: Math.max(1, Math.round(rem / 60000)) })}`);
       const total = Number(time?.state) * 60000;
       pct = total ? Math.min(100, Math.max(0, 100 - (rem / total) * 100)) : 0;
       showBar = true;
