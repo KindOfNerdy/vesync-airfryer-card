@@ -1,0 +1,160 @@
+blueprint:
+  name: Turbo Tower recipe
+  description: >
+    Cooking recipe for a dual-basket VeSync air fryer (Cosori Turbo Tower Pro,
+    CAF-DC111S-AEU). Calls `vesync.start_cook` with the values below. The basket
+    and "start immediately" can be fixed here or taken from helpers, so one
+    script per recipe is enough.
+  domain: script
+  author: KindOfNerdy
+  source_url: https://github.com/KindOfNerdy/vesync-airfryer-card/blob/main/blueprints/script/turbo_tower_recipe.yaml
+  homeassistant:
+    min_version: "2024.10.0"
+  input:
+    device:
+      name: Air fryer
+      description: Leave empty if you have only one VeSync air fryer.
+      default: ""
+      selector:
+        device:
+          integration: vesync
+    recipe:
+      name: Recipe
+      icon: mdi:chef-hat
+      input:
+        program:
+          name: Program
+          default: airfry
+          selector:
+            select:
+              options:
+                - { value: airfry, label: Air fry }
+                - { value: bake, label: Bake }
+                - { value: roast, label: Roast }
+                - { value: grill, label: Grill }
+                - { value: reheat, label: Reheat }
+                - { value: dry, label: Dry }
+                - { value: proof, label: Proof }
+        temperature:
+          name: Temperature
+          default: 180
+          selector:
+            number: { min: 30, max: 230, step: 1, unit_of_measurement: "°C", mode: box }
+        duration:
+          name: Time
+          default: 10
+          selector:
+            number: { min: 1, max: 1440, step: 1, unit_of_measurement: min, mode: box }
+    basket_choice:
+      name: Basket and start
+      icon: mdi:tray-full
+      input:
+        basket:
+          name: Basket
+          description: >
+            "From helper" reads an input_select below; its selected option must
+            contain the basket number (1 = top, 2 = bottom).
+          default: "1"
+          selector:
+            select:
+              options:
+                - { value: "1", label: Basket 1 (top) }
+                - { value: "2", label: Basket 2 (bottom) }
+                - { value: both, label: Both baskets }
+                - { value: helper, label: From helper }
+        basket_helper:
+          name: Basket helper
+          description: input_select used when "From helper" is chosen above.
+          default: ""
+          selector:
+            entity:
+              domain: input_select
+        start_now:
+          name: Start immediately
+          description: Off = only send the recipe to the appliance, then confirm on its display.
+          default: true
+          selector:
+            boolean: {}
+        start_now_helper:
+          name: Start-immediately helper
+          description: Optional input_boolean; when set it replaces the switch above.
+          default: ""
+          selector:
+            entity:
+              domain: input_boolean
+    second_basket:
+      name: Both baskets
+      icon: mdi:numeric-2-box-multiple
+      collapsed: true
+      input:
+        mode:
+          name: Mode
+          description: >
+            Separate = independent baskets, sync = both finish together,
+            match = basket 2 copies basket 1 (the values below are ignored).
+          default: separate
+          selector:
+            select:
+              options:
+                - { value: separate, label: Separate }
+                - { value: sync, label: Finish together }
+                - { value: match, label: Copy basket 1 }
+        program_2:
+          name: Program, basket 2
+          default: none
+          selector:
+            select:
+              options:
+                - { value: none, label: "—" }
+                - { value: airfry, label: Air fry }
+                - { value: bake, label: Bake }
+                - { value: roast, label: Roast }
+                - { value: grill, label: Grill }
+                - { value: reheat, label: Reheat }
+                - { value: dry, label: Dry }
+                - { value: proof, label: Proof }
+        temperature_2:
+          name: Temperature, basket 2
+          description: 0 = appliance default for the program.
+          default: 0
+          selector:
+            number: { min: 0, max: 230, step: 1, unit_of_measurement: "°C", mode: box }
+        duration_2:
+          name: Time, basket 2
+          description: 0 = appliance default for the program.
+          default: 0
+          selector:
+            number: { min: 0, max: 1440, step: 1, unit_of_measurement: min, mode: box }
+
+mode: single
+
+variables:
+  device: !input device
+  program: !input program
+  temperature: !input temperature
+  duration: !input duration
+  basket: !input basket
+  basket_helper: !input basket_helper
+  start_now: !input start_now
+  start_now_helper: !input start_now_helper
+  mode: !input mode
+  program_2: !input program_2
+  temperature_2: !input temperature_2
+  duration_2: !input duration_2
+
+sequence:
+  - action: vesync.start_cook
+    data: >-
+      {% set chosen = states(basket_helper) if basket == 'helper' and basket_helper else basket %}
+      {% set b = '2' if basket == 'helper' and '2' in chosen else ('1' if basket == 'helper' else chosen) %}
+      {% set now = (is_state(start_now_helper, 'on') if start_now_helper else start_now) %}
+      {% set d = {'basket': b, 'program': program, 'temperature': temperature,
+                  'duration': duration, 'send_only': not now} %}
+      {% if device %}{% set d = dict(d, device_id=device) %}{% endif %}
+      {% if b == 'both' %}
+        {% set d = dict(d, mode=mode) %}
+        {% if program_2 != 'none' %}{% set d = dict(d, program_2=program_2) %}{% endif %}
+        {% if temperature_2 | int(0) > 0 %}{% set d = dict(d, temperature_2=temperature_2) %}{% endif %}
+        {% if duration_2 | int(0) > 0 %}{% set d = dict(d, duration_2=duration_2) %}{% endif %}
+      {% endif %}
+      {{ d }}
