@@ -1,116 +1,91 @@
 # VeSync Air Fryer Card
 
-A Lovelace card for dual-basket VeSync air fryers (developed for the Cosori Turbo Tower Pro, `CAF-DC111S-AEU`): status, controls and a recipe list in one card. Colors, fonts and texts follow your Home Assistant theme and language.
+A Lovelace card for dual-basket VeSync air fryers (developed for the Cosori Turbo Tower Pro, `CAF-DC111S-AEU`): status, controls and a recipe list in one card. Colors, fonts and texts follow your Home Assistant theme and language (English and German included).
 
 <img src="docs/screenshot-en.png" alt="The card in the default theme without pictures" width="320">
 
-One card, three variants:
-
-| `mode` | Shows |
-|---|---|
-| `full` (default) | Controls and recipes |
-| `control` | Status and controls only |
-| `recipes` | Recipe list only |
+Each basket shows its status and a form (program, temperature, time) with the values the appliance allows. One action button is Start, Send, Pause or Resume depending on the state, plus Stop when there is something to stop. "Both baskets" and the settings are collapsed below.
 
 ## Requirements
 
-- Home Assistant with the VeSync integration that provides per-basket entities (cooking status, program, temperature, time, start/pause/resume/stop buttons). Until this is part of Home Assistant Core, that is the custom integration [ha-vesync-turbotower](https://github.com/KindOfNerdy/ha-vesync-turbotower).
-- Tested only with the Turbo Tower Pro (CAF-DC111S-AEU) on Home Assistant 2026.11.
+- Home Assistant with the VeSync integration that provides per-basket entities. Until this is part of Home Assistant Core, that is the custom integration [ha-vesync-turbotower](https://github.com/KindOfNerdy/ha-vesync-turbotower).
+- Tested with the Turbo Tower Pro (CAF-DC111S-AEU) on Home Assistant 2026.11.
 
 ## Installation
 
-**Home Assistant 2026.11 and later (Marketplace):** open *Settings → Marketplace*, choose *Add from link* and enter `https://github.com/KindOfNerdy/vesync-airfryer-card`.
+**Home Assistant 2026.11 and later:** *Settings → Marketplace → Add from link*, enter `https://github.com/KindOfNerdy/vesync-airfryer-card`.
 
-**Earlier versions (HACS):**
+**Earlier versions:** add the repository in HACS as a custom repository of type *Dashboard*, then download the card.
 
 [![Open your Home Assistant instance and open this repository in HACS.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=KindOfNerdy&repository=vesync-airfryer-card&category=plugin)
 
-Or add the repository in HACS as a custom repository of type *Dashboard*, then download the card.
-
 ## Usage
 
-Add the card from the card picker ("VeSync Air Fryer Card") and set it up in the visual editor, or use YAML. Everything below can be set in the editor except `recipes`, which is YAML only.
+Add "VeSync Air Fryer Card" from the card picker and set it up in the visual editor, or use YAML:
 
 ```yaml
 type: custom:vesync-airfryer-card
-mode: full
+mode: full   # full | control | recipes
 ```
 
-The card finds the air fryer's entities itself. Set `device_id` only if you have more than one VeSync air fryer.
-
-### What you create yourself
-
-The card needs nothing but the integration. Everything below is optional, and you name it as you like:
-
-| You create | Needed for | Where it shows up in the card |
-|---|---|---|
-| **Recipe scripts** (from the blueprint, see [Recipes](#recipes)) | Recipes | One tile per script in the **Recipes** list. Tap = run. |
-| **A label** on those scripts (any name, selected as `recipe_label`) | Telling the card which scripts are recipes | Not shown; it only decides which scripts are listed. |
-| **An `input_select` helper** whose options contain the basket number, e.g. `Basket 1 · top` and `Basket 2 · bottom` (`basket_entity`) | Recipes that use "basket from helper" | The basket switch next to the **Recipes** heading. |
-| **An `input_boolean` helper** (`direct_start_entity`) | A start/send choice shared with scripts and other dashboards | The **Action button** switch under **Settings** (start right away or only send). |
-
-Without the helpers the card still works: the basket is set in the recipe itself, and the start/send choice is remembered by the browser.
-
-### Start or send
-
-Every start can do one of two things: **start** cooking right away, or **send** the values to the appliance, where you confirm with the Start button on its display. You can choose this in two places:
-
-| Where | What it controls |
-|---|---|
-| **The card**: switch "Action button" under *Settings* | The action buttons of the baskets and the "Both baskets" buttons in the card |
-| **The recipe script**: blueprint input "Start immediately" | That one recipe, whenever it runs (card, voice, automation) |
-
-The two are independent unless you connect them with one `input_boolean` helper: set it as `direct_start_entity` in the card **and** as "Start-immediately helper" in the blueprint. Then there is one switch (on = start right away, off = only send), and the card and all recipes follow it.
-
-### Options
-
-| Option | Default | Description |
-|---|---|---|
-| `mode` | `full` | `full`, `control` or `recipes` |
-| `hide` | – | Sections to hide: `header`, `both` (both baskets), `settings` |
-| `device_id` | first air fryer | Device of the air fryer |
-| `direct_start_entity` | – | Optional `input_boolean` behind the "Action button" switch in the card's settings. On = start right away, off = only send. Recipe scripts can use the same helper (blueprint input "Start-immediately helper"). Without a helper the browser remembers the choice. |
-| `confirm_stop` | `true` | Tap Stop twice: the first tap asks, the second stops. Off = the first tap stops. |
-| `basket_entity` | – | Optional `input_select` for recipes whose basket is taken from a helper |
-| `recipe_label` | `airfryer_rezept` | Label (or list of labels) that marks recipe scripts. Any label works; set the one you use, the default is only a fallback |
-| `recipe_filter` | – | Optional extra filter on script names, e.g. `script.my_recipes_*` |
-| `recipes` | – | Explicit list of script entity IDs (replaces label and filter) |
-| `images` | – | Optional pictures, see below |
-
-### How it works
-
-- **Controls:** each basket has a status, a form (program, temperature, time) and one action button that is Start, Send, Pause or Resume depending on the state, plus Stop when there is something to stop. Temperature and time offer the values the appliance allows for the program (a picker, or the +/- buttons). "Both baskets" and the settings are collapsed below; both can be hidden with `hide`.
-- **Start or send:** see [Start or send](#start-or-send). If you hide the settings section, change the helper instead.
-- **Recipes:** every script that carries the recipe label is a recipe (see `recipe_label`). Tap it to run it. Program, temperature and time are read from the script's configuration, which needs an administrator account; for other users the tile still works, only the details line stays empty.
-
-### Pictures
-
-By default the card shows Material Design icons: `mdi:french-fries` for the appliance and `mdi:tray-full` for a basket. To use your own pictures, put them below `/config/www` and reference them:
-
-```yaml
-images:
-  device: /local/air_fryer/device.webp
-  basket: /local/air_fryer/basket_{n}.webp      # {n} becomes 1 or 2
-  basket_out: /local/air_fryer/basket_out_{n}.webp  # basket pulled out
-```
+The card finds the entities itself. Set `device_id` only if you have more than one VeSync air fryer. Everything else is optional.
 
 ## Recipes
+
+A recipe is a script that calls `vesync.start_cook`. The card lists every script that carries a label of your choice. Tap a tile to run it.
 
 1. Import the blueprint:
 
    [![Open your Home Assistant instance and show the blueprint import dialog with a specific blueprint pre-filled.](https://my.home-assistant.io/badges/blueprint_import.svg)](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2FKindOfNerdy%2Fvesync-airfryer-card%2Fblob%2Fmain%2Fblueprints%2Fscript%2Fturbo_tower_recipe.yaml)
 
 2. Create a script from the blueprint "Turbo Tower recipe" (program, temperature, time, basket).
-3. Give the script a name and an icon (without an icon the card shows `mdi:chef-hat`).
-4. Add a label to the script (create it first if needed) and select it as `recipe_label` in the card's settings. The script then shows up in the card. If you name the label **Airfryer-Rezept** (ID `airfryer_rezept`), no setting is needed.
+3. Give the script a name and an icon (without one the card shows `mdi:chef-hat`). The blueprint cannot set these.
+4. Add a label to the script and select it as `recipe_label` in the card's settings. If you name the label **Airfryer-Rezept** (ID `airfryer_rezept`), no setting is needed.
 
-The blueprint is a starting point; any script that carries the recipe label is listed. The blueprint cannot set a script's name, icon or label, so do that in the script's settings.
+The card reads program, temperature and time from the script for the detail line. That needs an administrator account; for other users the tile still works.
 
-## Languages
+### Start or send
 
-The card follows the Home Assistant language (English and German texts included). States and program names come from the integration's translations.
+Every start either **starts** cooking right away or **sends** the values to the appliance, where you confirm with its Start button. This is set in two places:
 
-## Notes
+| Where | Applies to |
+|---|---|
+| Card, switch "Action button" under *Settings* | The basket buttons and "Both baskets" in the card |
+| Recipe script, blueprint input "Start immediately" | That one recipe, however it is started |
 
-- The card uses the entities of the integration only; it does not talk to the VeSync cloud itself.
-- Reading recipe details uses an administrator-only API (`config/script/config`).
+**Recipes always use their own setting; the card's switch does not change them.** To control both with one switch, create an `input_boolean` helper and set it as `direct_start_entity` in the card **and** as "Start-immediately helper" in the blueprint. Without a helper, the card's switch is only remembered by the browser.
+
+### Optional helpers
+
+| Helper | Option | Shows up as |
+|---|---|---|
+| `input_boolean` | `direct_start_entity` | The "Action button" switch under *Settings* (see above) |
+| `input_select` with options that contain the basket number, e.g. `Basket 1 · top`, `Basket 2 · bottom` | `basket_entity` | Basket switch next to "Recipes"; used by recipes set to "basket from helper" |
+
+## Options
+
+| Option | Default | Description |
+|---|---|---|
+| `mode` | `full` | `full` (controls and recipes), `control` or `recipes` |
+| `hide` | – | Sections to hide: `header`, `both` (both baskets), `settings` |
+| `device_id` | first air fryer | Device of the air fryer |
+| `direct_start_entity` | – | `input_boolean` for start/send, see above |
+| `basket_entity` | – | `input_select` for the recipe basket, see above |
+| `confirm_stop` | `true` | Stop needs a second tap to confirm |
+| `recipe_label` | `airfryer_rezept` | Label (or list) that marks recipe scripts; any label works, the default is only a fallback |
+| `recipe_filter` | – | Extra filter on script names, e.g. `script.my_recipes_*` |
+| `recipes` | – | Explicit list of script entity IDs (replaces label and filter; YAML only) |
+| `images` | – | Your own pictures, see below |
+
+## Pictures
+
+By default the card shows icons: `mdi:french-fries` for the appliance, `mdi:tray-full` for a basket. For your own pictures, put them below `/config/www` and reference them:
+
+```yaml
+images:
+  device: /local/air_fryer/device.webp
+  basket: /local/air_fryer/basket_{n}.webp          # {n} becomes 1 or 2
+  basket_out: /local/air_fryer/basket_out_{n}.webp  # basket pulled out
+```
+
+The card uses only the entities of the integration; it does not talk to the VeSync cloud itself.
