@@ -157,9 +157,11 @@ class VesyncAirfryerCard extends HTMLElement {
     this._timers = {};
     this._confirm = null;
     this._message = "";
-    this._bothOpen = false;
-    this._settingsOpen = false;
-    this._recipesOpen = false;
+    // Folded sections are remembered per browser (default: all closed).
+    const open = this._loadOpen();
+    this._bothOpen = open.both === true;
+    this._settingsOpen = open.settings === true;
+    this._recipesOpen = open.recipes === true;
     this._recipeCfg = {};
     this._recipeList = [];
     this._recipeSrc = null;
@@ -172,6 +174,7 @@ class VesyncAirfryerCard extends HTMLElement {
       if (el.dataset.act === "step") this._step(entity, Number(el.dataset.dir));
       if (el.dataset.act === "toggle") {
         this._bothOpen = !this._bothOpen;
+        this._saveOpen();
         this._refresh();
       }
       if (el.dataset.act === "recipe") this._runRecipe(entity);
@@ -185,10 +188,12 @@ class VesyncAirfryerCard extends HTMLElement {
       }
       if (el.dataset.act === "toggle-recipes") {
         this._recipesOpen = !this._recipesOpen;
+        this._saveOpen();
         this._refresh();
       }
       if (el.dataset.act === "toggle-settings") {
         this._settingsOpen = !this._settingsOpen;
+        this._saveOpen();
         this._refresh();
       }
       if (el.dataset.act === "mode") this._setDirect(el.dataset.value === "start");
@@ -453,6 +458,25 @@ class VesyncAirfryerCard extends HTMLElement {
       return localStorage.getItem("vesync-airfryer-card-direct") !== "0";
     } catch (e) {
       return true;
+    }
+  }
+
+  _loadOpen() {
+    try {
+      return JSON.parse(localStorage.getItem("vesync-airfryer-card-open") || "{}") || {};
+    } catch (e) {
+      return {};
+    }
+  }
+
+  _saveOpen() {
+    try {
+      localStorage.setItem(
+        "vesync-airfryer-card-open",
+        JSON.stringify({ both: this._bothOpen, settings: this._settingsOpen, recipes: this._recipesOpen })
+      );
+    } catch (e) {
+      /* storage not available */
     }
   }
 

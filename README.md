@@ -4,7 +4,7 @@ A Lovelace card for dual-basket VeSync air fryers (developed for the Cosori Turb
 
 <img src="docs/screenshot-en.png" alt="The card in the default theme without pictures" width="320">
 
-Each basket shows its status and a form (program, temperature, time) with the values the appliance allows. One action button is Start, Send, Pause or Resume depending on the state, plus Stop when there is something to stop. "Both baskets", the recipes and the settings are collapsed below; tap a title to open it.
+Each basket shows its status and a form (program, temperature, time) with the values the appliance allows. One action button is Start, Send, Pause or Resume depending on the state, plus Stop when there is something to stop. "Both baskets", the recipes and the settings are collapsed below; tap a title to open it. Your browser remembers what you opened.
 
 ## Requirements
 
