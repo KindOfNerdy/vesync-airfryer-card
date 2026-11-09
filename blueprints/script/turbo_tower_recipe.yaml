@@ -71,7 +71,7 @@ blueprint:
               domain: input_select
         start_now:
           name: Start immediately
-          description: Off = only send the recipe to the appliance, then confirm on its display.
+          description: On = starts heating remotely, at your own risk. Off = only send the recipe to the appliance, then start it with its Start/Pause button.
           default: true
           selector:
             boolean: {}
