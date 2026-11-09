@@ -72,7 +72,7 @@ blueprint:
         start_now:
           name: Start immediately
           description: On = starts heating remotely, at your own risk. Off = only send the recipe to the appliance, then start it with its Start/Pause button.
-          default: true
+          default: false
           selector:
             boolean: {}
         start_now_helper:

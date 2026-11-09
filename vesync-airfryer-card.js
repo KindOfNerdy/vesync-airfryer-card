@@ -4,7 +4,7 @@
  * Colors and fonts come only from the Home Assistant theme.
  */
 
-const CARD_VERSION = "0.5.3";
+const CARD_VERSION = "0.5.4";
 
 const TEXT = {
   en: {
@@ -638,7 +638,21 @@ class VesyncAirfryerCard extends HTMLElement {
       temperature: num(d.temperature),
       duration: num(d.duration),
       basket: text(d.basket),
+      startNow: this._recipeStartNow(cfg, d),
     };
+  }
+
+  // Whether a recipe starts at once (true), only sends (false) or can't be told (null).
+  _recipeStartNow(cfg, d) {
+    if (cfg.use_blueprint) {
+      if (d.start_now_helper) {
+        const st = this._hass.states[d.start_now_helper]?.state;
+        return st === undefined ? null : st !== "off";
+      }
+      return d.start_now === true; // the blueprint's default is off (only send)
+    }
+    if (d.send_only === undefined) return false; // start_cook only sends by default
+    return typeof d.send_only === "boolean" ? !d.send_only : null;
   }
 
   _recipeDetail(id) {
@@ -667,7 +681,10 @@ class VesyncAirfryerCard extends HTMLElement {
     const helper = this._config.basket_entity ? hass.states[this._config.basket_entity]?.state : "";
     return (
       this._recipeIds()
-        .map((id) => `${id}:${hass.states[id]?.state}:${this._recipeCfg[id] ? 1 : 0}`)
+        .map((id) => {
+          const sn = this._recipeCfg[id]?.use_blueprint?.input?.start_now_helper;
+          return `${id}:${hass.states[id]?.state}:${this._recipeCfg[id] ? 1 : 0}:${sn ? hass.states[sn]?.state : ""}`;
+        })
         .join(",") + helper
     );
   }
@@ -708,7 +725,7 @@ class VesyncAirfryerCard extends HTMLElement {
           <ha-icon icon="${running ? "mdi:loading" : st.attributes.icon || "mdi:chef-hat"}" class="${running ? "spin" : ""}"></ha-icon>
           <span class="r-text"><span class="r-name">${st.attributes.friendly_name || id}</span>
           <span class="r-detail">${this._recipeDetail(id)}</span></span>
-          <ha-icon class="go" icon="${this._direct ? "mdi:play" : "mdi:send"}"></ha-icon></button>`;
+          <ha-icon class="go" icon="${(this._recipeValues(id)?.startNow ?? this._direct) ? "mdi:play" : "mdi:send"}"></ha-icon></button>`;
       })
       .join("");
     const body = tiles ? `<div class="tiles">${tiles}</div>` : `<div class="note">${this._t("no_recipes")}</div>`;
