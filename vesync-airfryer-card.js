@@ -4,7 +4,7 @@
  * Colors and fonts come only from the Home Assistant theme.
  */
 
-const CARD_VERSION = "0.5.2";
+const CARD_VERSION = "0.5.3";
 
 const TEXT = {
   en: {
@@ -824,7 +824,7 @@ class VesyncAirfryerCard extends HTMLElement {
       : `<ha-icon class="pic icon ${dim}" icon="mdi:tray-full"></ha-icon>`;
 
     // fixed slots: A = Start or Send (per switch) / Pause / Resume, B = Stop
-    const direct = this._direct;
+    const direct = this._direct && !!this._ent("basket_start", n);
     const slotA = f.pausable
       ? { label: this._t("pause"), icon: "mdi:pause", entity: this._ent("basket_pause", n), enabled: true }
       : f.resumable
@@ -890,7 +890,7 @@ class VesyncAirfryerCard extends HTMLElement {
         ${toggle}
         <div class="both-row">
           ${this._select(this._ent("start_mode"), both)}
-          ${this._direct
+          ${this._direct && this._ent("start_both")
             ? this._btn({ label: this._t("start_both"), icon: "mdi:play", entity: this._ent("start_both"), enabled: both, primary: true })
             : this._btn({ label: this._t("send_both"), icon: "mdi:send", entity: this._ent("send_both"), enabled: both, primary: true })}
         </div>
@@ -941,7 +941,9 @@ class VesyncAirfryerCard extends HTMLElement {
       if (!hide.includes("both")) body += this._both();
     }
     if (mode !== "control") body += this._recipes();
-    if (!hide.includes("settings")) body += this._settings();
+    // The Start/Send switch only matters when the integration's Start buttons are enabled.
+    const canStart = !!(this._ent("basket_start", 1) || this._ent("start_both"));
+    if (!hide.includes("settings") && canStart) body += this._settings();
     body += `<div class="msg">${this._message}</div>`;
     this.shadowRoot.innerHTML = `
       <style>

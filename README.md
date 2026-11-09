@@ -53,7 +53,7 @@ Every start either **starts** cooking right away or **sends** the values to the 
 
 | Where | Applies to |
 |---|---|
-| Card, switch "Action button" under *Settings* | The basket buttons and "Both baskets" in the card |
+| Card, switch "Action button" under *Settings* (only shown when the integration's Start buttons are enabled) | The basket buttons and "Both baskets" in the card |
 | Recipe script, blueprint input "Start immediately" | That one recipe, however it is started |
 
 **Recipes always use their own setting; the card's switch does not change them.** To control both with one switch, create an `input_boolean` helper and set it as `direct_start_entity` in the card **and** as "Start-immediately helper" in the blueprint. Without a helper, the card's switch is only remembered by the browser.
