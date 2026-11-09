@@ -7,7 +7,7 @@ A Lovelace card for dual-basket VeSync air fryers (developed for the Cosori Turb
 Each basket shows its status and a form (program, temperature, time) with the values the appliance allows. One action button is Start, Send, Pause or Resume depending on the state, plus Stop when there is something to stop. "Both baskets", the recipes and the settings are collapsed below; tap a title to open it. Your browser remembers what you opened.
 
 > [!WARNING]
-> **Start** and recipes with "Start immediately" start heating remotely, at your own risk. In the EU, the VeSync app asks you to start cooking on the appliance; **Send** does that (the appliance waits for its Start/Pause button). See [Safety](https://github.com/KindOfNerdy/ha-vesync-turbotower/blob/main/README.en.md#safety) in the integration.
+> **Start** and recipes with "Start immediately" start heating remotely, at your own risk. In the EU, the VeSync app asks you to start cooking on the appliance; **Send** does that (the appliance waits for its Start/Pause button). See [Safety](https://github.com/KindOfNerdy/ha-vesync-turbotower#safety) in the integration.
 
 ## Requirements
 
