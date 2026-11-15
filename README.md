@@ -93,3 +93,7 @@ images:
 ```
 
 The card uses only the entities of the integration; it does not talk to the VeSync cloud itself.
+
+## Support
+
+If this saves you time, you can [buy me a coffee on Ko-fi](https://ko-fi.com/kindofnerdy) ☕
