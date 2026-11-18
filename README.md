@@ -16,7 +16,15 @@ Each basket shows its status and a form (program, temperature, time) with the va
 
 ## Installation
 
-**Home Assistant 2026.11 and later:** *Settings → Marketplace → Add from link*, enter `https://github.com/KindOfNerdy/vesync-airfryer-card`.
+**Home Assistant 2026.11 and later (Marketplace):**
+
+1. Add the repository (*Add from link*, `https://github.com/KindOfNerdy/vesync-airfryer-card`):
+
+   [![Open your Home Assistant instance and show your custom repositories in the Marketplace.](https://my.home-assistant.io/badges/marketplace_repositories.svg)](https://my.home-assistant.io/redirect/marketplace_repositories/)
+
+2. Install the card:
+
+   [![Open your Home Assistant instance and open this repository in the Marketplace.](https://my.home-assistant.io/badges/marketplace_repository.svg)](https://my.home-assistant.io/redirect/marketplace_repository/?owner=KindOfNerdy&repository=vesync-airfryer-card&category=plugin)
 
 **Earlier versions:** add the repository in HACS as a custom repository of type *Dashboard*, then download the card.
 
