@@ -4,7 +4,7 @@
  * Colors and fonts come only from the Home Assistant theme.
  */
 
-const CARD_VERSION = "0.5.4";
+const CARD_VERSION = "0.5.5";
 
 const TEXT = {
   en: {
@@ -868,7 +868,7 @@ class VesyncAirfryerCard extends HTMLElement {
           ${this._stepper(this._ent("basket_temperature", n), f.idle)}
           ${this._stepper(this._ent("basket_time", n), f.idle)}
         </div>`}
-        ${showBar ? `<div class="bar"><div style="width:${pct}%;background:${color}"></div></div>` : ""}
+        ${showBar ? `<div class="bar"><div style="width:${pct}%"></div></div>` : ""}
       </div>`;
   }
 
@@ -990,9 +990,9 @@ class VesyncAirfryerCard extends HTMLElement {
         .wide { grid-column: 1 / -1; }
         .actions { display: flex; gap: 6px; }
         .bar { grid-column: 1 / -1; margin-top: 8px; height: 6px; border-radius: 3px; background: var(--divider-color); overflow: hidden; }
-        .bar div { height: 100%; border-radius: 3px; }
+        .bar div { height: 100%; border-radius: 3px; background: var(--accent-color); }
         .pic { width: 100%; display: block; }
-        .icon { --mdc-icon-size: 40px; color: var(--secondary-text-color); display: flex; justify-content: center; }
+        .icon { --mdc-icon-size: 40px; color: var(--accent-color); display: flex; justify-content: center; }
         .head .icon { --mdc-icon-size: 40px; }
         .dim { opacity: .55; filter: grayscale(.5); }
 
@@ -1046,7 +1046,7 @@ class VesyncAirfryerCard extends HTMLElement {
           min-height: 56px; cursor: pointer; border-radius: var(--ha-card-border-radius, 12px);
           background: var(--secondary-background-color); color: var(--primary-text-color); }
         .recipe:focus-visible { outline: 2px solid var(--primary-color); outline-offset: 2px; }
-        .recipe ha-icon { --mdc-icon-size: 24px; flex: none; color: var(--primary-color); }
+        .recipe ha-icon { --mdc-icon-size: 24px; flex: none; color: var(--accent-color); }
         .r-text { display: flex; flex-direction: column; min-width: 0; flex: 1; }
         .recipe .go { --mdc-icon-size: 20px; color: var(--secondary-text-color); }
         .r-name { font-size: 14px; font-weight: 500; overflow: hidden; overflow-wrap: anywhere;
