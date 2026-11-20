@@ -4,7 +4,7 @@
  * Colors and fonts come only from the Home Assistant theme.
  */
 
-const CARD_VERSION = "0.5.5";
+const CARD_VERSION = "0.6.0";
 
 const TEXT = {
   en: {
@@ -37,6 +37,10 @@ const TEXT = {
     ed_mode_full: "Full (controls and recipes)",
     ed_mode_control: "Controls only",
     ed_mode_recipes: "Recipes only",
+    ed_mode_row: "Row (one line, like a tile)",
+    ed_tap_action: "Tap action",
+    ed_hold_action: "Hold action",
+    off: "Off",
     ed_hide: "Hide sections",
     ed_hide_header: "Header",
     ed_hide_both: "Both baskets",
@@ -93,6 +97,10 @@ const TEXT = {
     ed_mode_full: "Komplett (Steuerung und Rezepte)",
     ed_mode_control: "Nur Steuerung",
     ed_mode_recipes: "Nur Rezepte",
+    ed_mode_row: "Zeile (einzeilig, wie eine Kachel)",
+    ed_tap_action: "Aktion beim Antippen",
+    ed_hold_action: "Aktion beim Halten",
+    off: "Aus",
     ed_hide: "Abschnitte ausblenden",
     ed_hide_header: "Kopf",
     ed_hide_both: "Beide Körbe",
@@ -145,6 +153,44 @@ const STATUS_COLOR = {
 const ACTIVE = ["cooking", "heating", "hold"];
 const PAUSED = ["cooking_stop", "preheat_stop"];
 const STOPPABLE = ["ready", "cooking_end", ...ACTIVE, ...PAUSED];
+const MODES = ["full", "control", "recipes", "row"];
+
+// Entities of the Home Assistant Core integration (from 2026.12) under the names of the
+// integration fork; per-basket entities carry the suffix "_basket" there.
+const KEY_ALIAS = {
+  pause_cooking: "basket_pause",
+  resume_cooking: "basket_resume",
+  stop_cooking: "basket_stop",
+};
+
+function normalizeKey(tk) {
+  const key = tk.endsWith("_basket") ? tk.slice(0, -"_basket".length) : tk;
+  return KEY_ALIAS[key] || key;
+}
+
+// Overall status of the appliance from its baskets: the first rule a basket matches wins.
+// An empty drawer slot also reports "pull_out" while the appliance is on, so only a
+// drawer with a program counts as pulled out.
+const DEVICE_RULES = [
+  ["pull_out", (f) => f.s === "pull_out" && f.hasValues],
+  ["paused", (f) => PAUSED.includes(f.s)],
+  ["cooking", (f) => ACTIVE.includes(f.s) || f.s === "preheat_end"],
+  ["finished", (f) => f.s === "cooking_end"],
+  ["ready", (f) => f.s === "ready" || f.s === "appointing"],
+  ["standby", (f) => f.s === "standby" && f.hasValues],
+];
+
+// baskets: results of _flags (null for a missing basket). Returns the status and the
+// baskets that decided it.
+function deviceStatus(baskets) {
+  const known = baskets.filter((f) => f && !["unknown", "unavailable"].includes(f.s));
+  if (!known.length) return { key: "unavailable", baskets: [] };
+  for (const [key, test] of DEVICE_RULES) {
+    const hit = known.filter(test);
+    if (hit.length) return { key, baskets: hit };
+  }
+  return { key: "off", baskets: [] };
+}
 
 class VesyncAirfryerCard extends HTMLElement {
   constructor() {
@@ -197,7 +243,24 @@ class VesyncAirfryerCard extends HTMLElement {
         this._refresh();
       }
       if (el.dataset.act === "mode") this._setDirect(el.dataset.value === "start");
+      if (el.dataset.act === "row") {
+        if (this._held) this._held = false;
+        else this._action("tap");
+      }
     });
+    // row view: hold_action after half a second
+    this.shadowRoot.addEventListener("pointerdown", (e) => {
+      if (!this._config?.hold_action || e.target.closest("[data-act]")?.dataset.act !== "row") return;
+      this._held = false;
+      clearTimeout(this._timers.hold);
+      this._timers.hold = setTimeout(() => {
+        this._held = true;
+        this._action("hold");
+      }, 500);
+    });
+    for (const type of ["pointerup", "pointercancel", "pointerleave"]) {
+      this.shadowRoot.addEventListener(type, () => clearTimeout(this._timers.hold));
+    }
     this.shadowRoot.addEventListener("change", (e) => {
       const input = e.target.closest("input[data-act='type']");
       if (input) {
@@ -222,13 +285,19 @@ class VesyncAirfryerCard extends HTMLElement {
     });
     this.shadowRoot.addEventListener("keydown", (e) => {
       if (e.key === "Enter" && e.target.matches?.("input[data-act='type']")) e.target.blur();
+      if ((e.key === "Enter" || e.key === " ") && e.target.matches?.("[data-act='row']")) {
+        e.preventDefault();
+        this._action("tap");
+      }
     });
   }
 
   // Visual editor: Home Assistant builds the form from this description.
   static getConfigForm() {
-    const notRecipes = { field: "mode", operator: "not_eq", value: "recipes" };
-    const notControl = { field: "mode", operator: "not_eq", value: "control" };
+    const modeIn = (...modes) => ({ field: "mode", operator: "in", value: modes });
+    const notRecipes = modeIn("full", "control", "row");
+    const withControls = modeIn("full", "control");
+    const withRecipes = modeIn("full", "recipes");
     const options = (keys, prefix) => keys.map((v) => ({ value: v, label: uiText(`${prefix}${v}`) }));
     return {
       schema: [
@@ -236,19 +305,22 @@ class VesyncAirfryerCard extends HTMLElement {
           name: "mode",
           default: "full",
           required: true,
-          selector: { select: { mode: "dropdown", options: options(["full", "control", "recipes"], "ed_mode_") } },
+          selector: { select: { mode: "dropdown", options: options(MODES, "ed_mode_") } },
         },
         {
           name: "hide",
           selector: { select: { multiple: true, mode: "list", options: options(["header", "form", "both", "settings"], "ed_hide_") } },
+          visible: modeIn("full", "control", "recipes"),
         },
         { name: "name", selector: { text: {} }, visible: notRecipes },
         { name: "device_id", selector: { device: { filter: { integration: "vesync" } } } },
-        { name: "direct_start_entity", selector: { entity: { filter: { domain: "input_boolean" } } } },
-        { name: "confirm_stop", default: true, selector: { boolean: {} }, visible: notRecipes },
-        { name: "basket_entity", selector: { entity: { filter: { domain: "input_select" } } }, visible: notControl },
-        { name: "recipe_label", selector: { label: { multiple: true } }, visible: notControl },
-        { name: "recipe_filter", selector: { text: {} }, visible: notControl },
+        { name: "tap_action", selector: { ui_action: {} }, visible: modeIn("row") },
+        { name: "hold_action", selector: { ui_action: {} }, visible: modeIn("row") },
+        { name: "direct_start_entity", selector: { entity: { filter: { domain: "input_boolean" } } }, visible: modeIn("full", "control", "recipes") },
+        { name: "confirm_stop", default: true, selector: { boolean: {} }, visible: withControls },
+        { name: "basket_entity", selector: { entity: { filter: { domain: "input_select" } } }, visible: withRecipes },
+        { name: "recipe_label", selector: { label: { multiple: true } }, visible: withRecipes },
+        { name: "recipe_filter", selector: { text: {} }, visible: withRecipes },
         {
           type: "expandable",
           name: "images",
@@ -269,9 +341,7 @@ class VesyncAirfryerCard extends HTMLElement {
       },
       // Options the form cannot show keep the visual editor off until they are removed in YAML.
       assertConfig: (config) => {
-        if (config.mode && !["full", "control", "recipes"].includes(config.mode)) {
-          throw new Error("mode must be full, control or recipes");
-        }
+        if (config.mode && !MODES.includes(config.mode)) throw new Error(`mode must be ${MODES.join(", ")}`);
         if (config.recipes) throw new Error("recipes can only be set in YAML");
       },
     };
@@ -282,18 +352,17 @@ class VesyncAirfryerCard extends HTMLElement {
   }
 
   getCardSize() {
-    return this._config?.mode === "recipes" ? 3 : 9;
+    return { recipes: 3, row: 1 }[this._config?.mode] || 9;
   }
 
   getGridOptions() {
+    if (this._config?.mode === "row") return { rows: 1, columns: 12, min_columns: 6 };
     return { columns: 12, min_columns: 6 };
   }
 
   setConfig(config) {
     const mode = config.mode || "full";
-    if (!["full", "control", "recipes"].includes(mode)) {
-      throw new Error("mode must be full, control or recipes");
-    }
+    if (!MODES.includes(mode)) throw new Error(`mode must be ${MODES.join(", ")}`);
     this._config = { ...config, mode };
     this._recipeSrc = null;
     this._found = null;
@@ -335,7 +404,7 @@ class VesyncAirfryerCard extends HTMLElement {
     let deviceId = this._config.device_id;
     if (!deviceId) {
       const first = Object.values(hass.entities).find(
-        (e) => e.platform === "vesync" && e.translation_key === "cook_status"
+        (e) => e.platform === "vesync" && e.translation_key && normalizeKey(e.translation_key) === "cook_status"
       );
       deviceId = first?.device_id;
     }
@@ -345,7 +414,7 @@ class VesyncAirfryerCard extends HTMLElement {
     const found = { deviceId, deviceName, entities: {} };
     for (const [id, reg] of Object.entries(hass.entities)) {
       if (reg.device_id !== deviceId || !reg.translation_key) continue;
-      const tk = reg.translation_key;
+      const tk = normalizeKey(reg.translation_key);
       const name = (hass.states[id]?.attributes?.friendly_name || "").replace(deviceName, "");
       const m = name.match(/(?:^|\D)([12])(?:\D|$)/);
       const slot = (found.entities[tk] ||= {});
@@ -373,6 +442,7 @@ class VesyncAirfryerCard extends HTMLElement {
     const set = this._state("cook_set_time", n);
     const hasValues = Boolean(set) && !EMPTY.includes(set.state);
     return {
+      n,
       s,
       hasValues,
       idle: s === "cooking_end" || (s === "standby" && !hasValues),
@@ -404,7 +474,8 @@ class VesyncAirfryerCard extends HTMLElement {
       this._busy.clear();
       this._refresh();
     }, 6000);
-    this._hass.callService("button", "press", { entity_id: entity }).catch((err) => {
+    // several buttons (comma-separated) are pressed together, e.g. both baskets' Pause
+    this._hass.callService("button", "press", { entity_id: entity.split(",") }).catch((err) => {
       this._busy.delete(entity);
       this._error(err);
     });
@@ -499,6 +570,95 @@ class VesyncAirfryerCard extends HTMLElement {
   // Ask before stopping (option confirm_stop, on by default).
   get _confirmStop() {
     return this._config.confirm_stop !== false;
+  }
+
+  // tap_action / hold_action of the row view (default for tapping: more-info).
+  _action(kind) {
+    const cfg = this._config[`${kind}_action`] || (kind === "tap" ? { action: "more-info" } : null);
+    if (!cfg) return;
+    const fire = (type, detail, target = this) =>
+      target.dispatchEvent(new CustomEvent(type, { detail, bubbles: true, composed: true }));
+    switch (cfg.action) {
+      case "more-info": {
+        const entityId = cfg.entity || this._mainEntity();
+        if (entityId) fire("hass-more-info", { entityId });
+        break;
+      }
+      case "navigate":
+        if (!cfg.navigation_path) break;
+        if (cfg.navigation_replace) history.replaceState(null, "", cfg.navigation_path);
+        else history.pushState(null, "", cfg.navigation_path);
+        fire("location-changed", { replace: !!cfg.navigation_replace }, window);
+        break;
+      case "url":
+        if (cfg.url_path) window.open(cfg.url_path);
+        break;
+      case "perform-action":
+      case "call-service": {
+        const [domain, service] = String(cfg.perform_action || cfg.service || "").split(".");
+        if (!service) break;
+        this._hass
+          .callService(domain, service, cfg.data || cfg.service_data || {}, cfg.target)
+          .catch((err) => this._error(err));
+        break;
+      }
+      default:
+        break;
+    }
+  }
+
+  // ---- overall status ------------------------------------------------------
+
+  _device() {
+    return deviceStatus([this._flags("1"), this._flags("2")]);
+  }
+
+  // The basket status entity that stands for the appliance (more-info, text).
+  _mainEntity(dev = this._device()) {
+    return this._ent("cook_status", dev.baskets[0]?.n || "1");
+  }
+
+  // Overall status as text from the integration's translations.
+  _deviceText(dev) {
+    const hass = this._hass;
+    if (dev.key === "off") {
+      const off = hass.localize?.("state.default.off");
+      return off && off !== "state.default.off" ? off : this._t("off");
+    }
+    const st = this._state("cook_status", dev.baskets[0]?.n || "1");
+    return st ? hass.formatEntityState(st) : "";
+  }
+
+  // Theme status color of a basket status
+  _color(f) {
+    if (!f) return "var(--secondary-text-color)";
+    return STATUS_COLOR[f.s] || (f.s === "standby" && f.hasValues ? "var(--info-color)" : "var(--secondary-text-color)");
+  }
+
+  // Remaining time and progress of a running basket, or null.
+  _timing(n) {
+    const end = this._state("cook_end_time", n);
+    if (!end || EMPTY.includes(end.state)) return null;
+    const endDate = new Date(end.state);
+    if (Number.isNaN(endDate.getTime())) return null;
+    // "End time" is rounded to whole minutes by the integration, so round (not ceil) the minutes left.
+    const rem = Math.max(0, endDate - Date.now());
+    const total = this._totalMs(n);
+    return {
+      clock: endDate.toLocaleTimeString(this._hass.language, { hour: "2-digit", minute: "2-digit" }),
+      mins: Math.max(1, Math.round(rem / 60000)),
+      pct: total ? Math.min(100, Math.max(0, 100 - (rem / total) * 100)) : 0,
+    };
+  }
+
+  // Cooking time of a basket in ms: the fork's time field (minutes) or the "set time" sensor.
+  _totalMs(n) {
+    const time = this._state("basket_time", n);
+    if (time && !EMPTY.includes(time.state)) return Number(time.state) * 60000;
+    const set = this._state("cook_set_time", n);
+    if (!set || EMPTY.includes(set.state)) return 0;
+    const unit = { s: 1000, min: 60000, h: 3600000, d: 86400000 }[set.attributes.unit_of_measurement] || 1000;
+    return Number(set.state) * unit || 0;
   }
 
   _error(err) {
@@ -676,7 +836,7 @@ class VesyncAirfryerCard extends HTMLElement {
   }
 
   _recipeSig() {
-    if (this._config.mode === "control") return "";
+    if (!["full", "recipes"].includes(this._config.mode)) return "";
     const hass = this._hass;
     const helper = this._config.basket_entity ? hass.states[this._config.basket_entity]?.state : "";
     return (
@@ -812,25 +972,11 @@ class VesyncAirfryerCard extends HTMLElement {
     const f = this._flags(n);
     if (!f) return "";
     const status = this._state("cook_status", n);
-    const end = this._state("cook_end_time", n);
-    const time = this._state("basket_time", n);
-    const color =
-      STATUS_COLOR[f.s] ||
-      (f.s === "standby" && f.hasValues ? "var(--info-color)" : "var(--secondary-text-color)");
+    const color = this._color(f);
 
     const lines = [];
-    let pct = 0;
-    let showBar = false;
-    if (end && !EMPTY.includes(end.state)) {
-      const endDate = new Date(end.state);
-      // "End time" is rounded to whole minutes by the integration, so round (not ceil) the minutes left.
-      const rem = Math.max(0, endDate - Date.now());
-      const clock = endDate.toLocaleTimeString(hass.language, { hour: "2-digit", minute: "2-digit" });
-      lines.push(`${this._t("done_at")} ${clock} · ${this._t("left", { n: Math.max(1, Math.round(rem / 60000)) })}`);
-      const total = Number(time?.state) * 60000;
-      pct = total ? Math.min(100, Math.max(0, 100 - (rem / total) * 100)) : 0;
-      showBar = true;
-    }
+    const timing = this._timing(n);
+    if (timing) lines.push(`${this._t("done_at")} ${timing.clock} · ${this._t("left", { n: timing.mins })}`);
     if (f.s === "ready") lines.push(this._t("ready_hint"));
     if (f.s === "standby" && f.hasValues) lines.push(this._t("panel_hint"));
 
@@ -868,28 +1014,76 @@ class VesyncAirfryerCard extends HTMLElement {
           ${this._stepper(this._ent("basket_temperature", n), f.idle)}
           ${this._stepper(this._ent("basket_time", n), f.idle)}
         </div>`}
-        ${showBar ? `<div class="bar"><div style="width:${pct}%"></div></div>` : ""}
+        ${timing ? `<div class="bar"><div style="width:${timing.pct}%"></div></div>` : ""}
       </div>`;
   }
 
-  _header() {
-    const hass = this._hass;
-    const a = this._state("cook_status", "1");
-    const b = this._state("cook_status", "2");
-    const name = this._config.name || this._found.deviceName || "Air fryer";
-    const sub = !a ? "" : !b || a.state === b.state
-      ? hass.formatEntityState(a)
-      : `${hass.formatEntityState(a)} · ${hass.formatEntityState(b)}`;
+  get _name() {
+    return this._config.name || this._found.deviceName || "Air fryer";
+  }
+
+  _deviceVisual() {
     const pic = this._config.images?.device;
-    const visual = pic
+    return pic
       ? `<img class="pic" src="${pic}" alt="">`
       : `<ha-icon class="pic icon" icon="mdi:french-fries"></ha-icon>`;
+  }
+
+  _header() {
+    const dev = this._device();
     return `
       <div class="head">
-        <div class="visual">${visual}</div>
-        <div class="name">${name}</div>
-        <div class="sub">${sub}</div>
+        <div class="visual">${this._deviceVisual()}</div>
+        <div class="name">${this._name}</div>
+        <div class="sub" style="color:${this._color(dev.baskets[0])}">${this._deviceText(dev)}</div>
       </div>`;
+  }
+
+  // Row view: one line like a tile – appliance, overall status, time left, one button.
+  _row() {
+    const hass = this._hass;
+    const dev = this._device();
+    const running = ["cooking", "paused"].includes(dev.key);
+    const parts = [];
+    const timed = dev.baskets.map((f) => ({ n: f.n, t: this._timing(f.n) }));
+    if (dev.baskets.length === 1) {
+      const n = dev.baskets[0].n;
+      const program = this._state("basket_program", n);
+      if (running && program && !EMPTY.includes(program.state)) parts.push(hass.formatEntityState(program));
+      if (timed[0].t) parts.push(this._t("left", { n: timed[0].t.mins }));
+      if (dev.key === "ready") parts.push(this._t("ready_hint"));
+    } else if (timed.length === 2 && timed.every((x) => x.t) && timed[0].t.mins === timed[1].t.mins) {
+      parts.push(this._t("left", { n: timed[0].t.mins }));
+    } else {
+      for (const { n, t } of timed) {
+        if (t) parts.push(`${this._t("basket", { n })} ${this._t("left", { n: t.mins })}`);
+      }
+    }
+    // progress of the basket that finishes first
+    const first = timed.filter((x) => x.t).sort((a, b) => a.t.mins - b.t.mins)[0];
+
+    // one button: pause or resume (both baskets at once where the integration offers it)
+    let btn = "";
+    const entities = (all, own) =>
+      this._ent(all) || dev.baskets.map((f) => this._ent(own, f.n)).filter(Boolean).join(",");
+    if (dev.key === "cooking") {
+      btn = this._btn({ label: this._t("pause"), icon: "mdi:pause", entity: entities("pause_all", "basket_pause"), enabled: true, primary: true, iconOnly: true });
+    } else if (dev.key === "paused") {
+      btn = this._btn({ label: this._t("resume"), icon: "mdi:play", entity: entities("resume_all", "basket_resume"), enabled: true, primary: true, iconOnly: true });
+    }
+    return `
+      <div class="row" data-act="row" role="button" tabindex="0" aria-label="${this._name}">
+        <div class="row-icon">${this._deviceVisual()}</div>
+        <div class="row-info">
+          <div class="row-name">${this._name}</div>
+          <div class="row-state">${this._message
+            ? `<span class="row-error">${this._message}</span>`
+            : `<span style="color:${this._color(dev.baskets[0])}">${this._deviceText(dev)}</span>${
+              parts.length ? ` · ${parts.join(" · ")}` : ""}`}</div>
+        </div>
+        ${btn}
+      </div>
+      ${first ? `<div class="row-bar"><div style="width:${first.t.pct}%"></div></div>` : ""}`;
   }
 
   _both() {
@@ -948,10 +1142,11 @@ class VesyncAirfryerCard extends HTMLElement {
     return Array.isArray(this._config.hide) ? this._config.hide : [];
   }
 
-  _render() {
+  _body() {
     const mode = this._config.mode;
-    let body = "";
+    if (mode === "row") return this._row();
     const hide = this._hide;
+    let body = "";
     if (mode !== "recipes") {
       if (!hide.includes("header")) body += this._header();
       body += `<div class="baskets">${this._basket("1")}${this._basket("2")}</div>`;
@@ -961,7 +1156,12 @@ class VesyncAirfryerCard extends HTMLElement {
     // The Start/Send switch only matters when the integration's Start buttons are enabled.
     const canStart = !!(this._ent("basket_start", 1) || this._ent("start_both"));
     if (!hide.includes("settings") && canStart) body += this._settings();
-    body += `<div class="msg">${this._message}</div>`;
+    return body + `<div class="msg">${this._message}</div>`;
+  }
+
+  _render() {
+    const body = this._body();
+    const row = this._config.mode === "row";
     this.shadowRoot.innerHTML = `
       <style>
         :host { display: block; }
@@ -1054,8 +1254,28 @@ class VesyncAirfryerCard extends HTMLElement {
         .r-detail { font-size: 12px; color: var(--secondary-text-color); }
         .note { margin-top: 12px; color: var(--secondary-text-color); font-size: 13px; }
         .msg { min-height: 1.2em; margin-top: 8px; font-size: 13px; color: var(--error-color); }
+
+        ha-card.row-card { padding: 0; position: relative; overflow: hidden; height: 100%; }
+        .row { box-sizing: border-box; display: flex; align-items: center; gap: 10px; height: 100%; min-height: 56px;
+          padding: 0 10px; cursor: pointer; border-radius: var(--ha-card-border-radius, 12px); }
+        .row:hover { background: color-mix(in srgb, var(--primary-text-color) 4%, transparent); }
+        .row:focus-visible { outline: 2px solid var(--primary-color); outline-offset: -2px; }
+        .row-icon { flex: none; width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center;
+          justify-content: center; overflow: hidden;
+          background: color-mix(in srgb, var(--accent-color) 20%, transparent); }
+        .row-icon .icon { --mdc-icon-size: 24px; }
+        .row-icon img.pic { width: 100%; height: 100%; object-fit: cover; }
+        .row-info { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+        .row-name { font-size: 14px; font-weight: 500; line-height: 20px; color: var(--primary-text-color);
+          white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .row-state { font-size: 12px; line-height: 16px; color: var(--secondary-text-color);
+          white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .row-error { color: var(--error-color); }
+        .row .btn { flex: none; width: 36px; min-height: 36px; height: 36px; border-radius: 50%; }
+        .row-bar { position: absolute; left: 0; right: 0; bottom: 0; height: 3px; }
+        .row-bar div { height: 100%; background: var(--accent-color); }
       </style>
-      <ha-card>${body}</ha-card>`;
+      <ha-card class="${row ? "row-card" : ""}">${body}</ha-card>`;
   }
 }
 
@@ -1064,7 +1284,7 @@ window.customCards = window.customCards || [];
 window.customCards.push({
   type: "vesync-airfryer-card",
   name: "VeSync Air Fryer Card",
-  description: "Control card for dual-basket VeSync air fryers (full, control only or recipes only).",
+  description: "Control card for dual-basket VeSync air fryers (full, control only, recipes only or one row).",
   preview: false,
   documentationURL: "https://github.com/KindOfNerdy/vesync-airfryer-card",
 });

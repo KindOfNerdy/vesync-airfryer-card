@@ -4,7 +4,7 @@ A Lovelace card for dual-basket VeSync air fryers (developed for the Cosori Turb
 
 <img src="docs/screenshot-en.png" alt="The card in the default theme without pictures" width="320">
 
-Each basket shows its status and a form (program, temperature, time) with the values the appliance allows. One action button is Start, Send, Pause or Resume depending on the state, plus Stop when there is something to stop. "Both baskets", the recipes and the settings are collapsed below; tap a title to open it. Your browser remembers what you opened.
+The header shows the overall status of the appliance. Each basket shows its status and a form (program, temperature, time) with the values the appliance allows. One action button is Start, Send, Pause or Resume depending on the state, plus Stop when there is something to stop. "Both baskets", the recipes and the settings are collapsed below; tap a title to open it. Your browser remembers what you opened.
 
 > [!WARNING]
 > **Start** and recipes with "Start immediately" start heating remotely, at your own risk. In the EU, the VeSync app asks you to start cooking on the appliance; **Send** does that (the appliance waits for its Start/Pause button). See [Safety](https://github.com/KindOfNerdy/ha-vesync-turbotower#safety) in the integration.
@@ -36,10 +36,24 @@ Add "VeSync Air Fryer Card" from the card picker and set it up in the visual edi
 
 ```yaml
 type: custom:vesync-airfryer-card
-mode: full   # full | control | recipes
+mode: full   # full | control | recipes | row
 ```
 
 The card finds the entities itself. Set `device_id` only if you have more than one VeSync air fryer. Everything else is optional.
+
+## Row
+
+`mode: row` shows the air fryer in one line, the size of a tile card, e.g. for a "running now" section on a phone dashboard: overall status, program and time left, a thin progress bar and one button (Pause or Resume). Stop is only in the full card. Tapping the row opens the more-info dialog; set `tap_action` (and `hold_action`) to change that, e.g. to navigate to a pop-up with the full card. The row does not hide itself when the appliance is off; use the card's visibility settings for that.
+
+```yaml
+type: custom:vesync-airfryer-card
+mode: row
+tap_action:
+  action: navigate
+  navigation_path: "#kitchen"
+```
+
+The overall status takes the first state one of the baskets is in: drawer pulled out (with a program), paused, cooking, finished, ready (sent, waiting for Start on the appliance), chosen on the appliance, off.
 
 ## Recipes
 
@@ -77,7 +91,7 @@ Every start either **starts** cooking right away or **sends** the values to the 
 
 | Option | Default | Description |
 |---|---|---|
-| `mode` | `full` | `full` (controls and recipes), `control` or `recipes` |
+| `mode` | `full` | `full` (controls and recipes), `control`, `recipes` or `row` (one line, see above) |
 | `hide` | – | Sections to hide: `header`, `form` (program, temperature and time of each basket), `both` (both baskets), `settings` |
 | `name` | device name | Title in the header |
 | `device_id` | first air fryer | Device of the air fryer |
@@ -87,6 +101,8 @@ Every start either **starts** cooking right away or **sends** the values to the 
 | `recipe_label` | `airfryer_rezept` | Label (or list) that marks recipe scripts; any label works, the default is only a fallback |
 | `recipe_filter` | – | Extra filter on script names, e.g. `script.my_recipes_*` |
 | `recipes` | – | Explicit list of script entity IDs (replaces label and filter; YAML only) |
+| `tap_action` | `more-info` | Row only: action when tapping the row (standard Home Assistant actions) |
+| `hold_action` | – | Row only: action when holding the row |
 | `images` | – | Your own pictures, see below |
 
 ## Pictures
