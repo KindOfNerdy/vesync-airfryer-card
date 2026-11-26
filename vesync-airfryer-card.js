@@ -4,7 +4,7 @@
  * Colors and fonts come only from the Home Assistant theme.
  */
 
-const CARD_VERSION = "0.6.1";
+const CARD_VERSION = "0.6.2";
 
 const TEXT = {
   en: {
@@ -14,7 +14,7 @@ const TEXT = {
     top: "top",
     bottom: "bottom",
     done_at: "done at",
-    left: "{n} min left",
+    left: "{time} left",
     start: "Start",
     send: "Send",
     pause: "Pause",
@@ -74,7 +74,7 @@ const TEXT = {
     top: "oben",
     bottom: "unten",
     done_at: "fertig um",
-    left: "noch {n} min",
+    left: "noch {time}",
     start: "Starten",
     send: "Senden",
     pause: "Pausieren",
@@ -153,6 +153,8 @@ const STATUS_COLOR = {
 const ACTIVE = ["cooking", "heating", "hold"];
 const PAUSED = ["cooking_stop", "preheat_stop"];
 const STOPPABLE = ["ready", "cooking_end", ...ACTIVE, ...PAUSED];
+// Overall status in which the appliance does nothing
+const RESTING = ["off", "standby", "unavailable"];
 const MODES = ["full", "control", "recipes", "row"];
 
 // Entities of the Home Assistant Core integration (from 2026.12) under the names of the
@@ -915,6 +917,11 @@ class VesyncAirfryerCard extends HTMLElement {
     return m ? `${h} h ${m} min` : `${h} h`;
   }
 
+  // "1 h 30 min left"; no-break spaces keep the time on one line.
+  _left(mins) {
+    return this._t("left", { time: this._fmt(mins, "min").replace(/ /g, "\u00a0") });
+  }
+
   // Value in the middle of a stepper: a native picker (a wheel on iOS) when the list of
   // allowed values is short enough, otherwise a typed field.
   _valueField(entity, st, value, unit, off) {
@@ -976,7 +983,7 @@ class VesyncAirfryerCard extends HTMLElement {
 
     const lines = [];
     const timing = this._timing(n);
-    if (timing) lines.push(`${this._t("done_at")} ${timing.clock} · ${this._t("left", { n: timing.mins })}`);
+    if (timing) lines.push(`${this._t("done_at")} ${timing.clock} · ${this._left(timing.mins)}`);
     if (f.s === "ready") lines.push(this._t("ready_hint"));
     if (f.s === "standby" && f.hasValues) lines.push(this._t("panel_hint"));
 
@@ -1022,18 +1029,19 @@ class VesyncAirfryerCard extends HTMLElement {
     return this._config.name || this._found.deviceName || "Air fryer";
   }
 
-  _deviceVisual() {
+  // The icon is grey while the appliance rests, like a tile that is off.
+  _deviceVisual(dev) {
     const pic = this._config.images?.device;
     return pic
       ? `<img class="pic" src="${pic}" alt="">`
-      : `<ha-icon class="pic icon" icon="mdi:french-fries"></ha-icon>`;
+      : `<ha-icon class="pic icon ${RESTING.includes(dev.key) ? "resting" : ""}" icon="mdi:french-fries"></ha-icon>`;
   }
 
   _header() {
     const dev = this._device();
     return `
       <div class="head">
-        <div class="visual">${this._deviceVisual()}</div>
+        <div class="visual">${this._deviceVisual(dev)}</div>
         <div class="name">${this._name}</div>
         <div class="sub" style="color:${this._color(dev.baskets[0])}">${this._deviceText(dev)}</div>
       </div>`;
@@ -1050,13 +1058,13 @@ class VesyncAirfryerCard extends HTMLElement {
       const n = dev.baskets[0].n;
       const program = this._state("basket_program", n);
       if (running && program && !EMPTY.includes(program.state)) parts.push(hass.formatEntityState(program));
-      if (timed[0].t) parts.push(this._t("left", { n: timed[0].t.mins }));
+      if (timed[0].t) parts.push(this._left(timed[0].t.mins));
       if (dev.key === "ready") parts.push(this._t("ready_hint"));
     } else if (timed.length === 2 && timed.every((x) => x.t) && timed[0].t.mins === timed[1].t.mins) {
-      parts.push(this._t("left", { n: timed[0].t.mins }));
+      parts.push(this._left(timed[0].t.mins));
     } else {
       for (const { n, t } of timed) {
-        if (t) parts.push(`${this._t("basket", { n })} ${this._t("left", { n: t.mins })}`);
+        if (t) parts.push(`${this._t("basket", { n })} ${this._left(t.mins)}`);
       }
     }
     // progress of the basket that finishes first
@@ -1069,11 +1077,11 @@ class VesyncAirfryerCard extends HTMLElement {
     if (dev.key === "cooking") {
       btn = this._btn({ label: this._t("pause"), icon: "mdi:pause", entity: entities("pause_all", "basket_pause"), enabled: true, primary: true, iconOnly: true });
     } else if (dev.key === "paused") {
-      btn = this._btn({ label: this._t("resume"), icon: "mdi:play", entity: entities("resume_all", "basket_resume"), enabled: true, primary: true, iconOnly: true });
+      btn = this._btn({ label: this._t("resume"), icon: "mdi:play", entity: entities("resume_all", "basket_resume"), enabled: true, iconOnly: true });
     }
     return `
       <div class="row" data-act="row" role="button" tabindex="0" aria-label="${this._name}">
-        <div class="row-icon">${this._deviceVisual()}</div>
+        <div class="row-icon">${this._deviceVisual(dev)}</div>
         <div class="row-info">
           <div class="row-name">${this._name}</div>
           <div class="row-state">${this._message
@@ -1193,6 +1201,7 @@ class VesyncAirfryerCard extends HTMLElement {
         .bar div { height: 100%; border-radius: 3px; background: var(--accent-color); }
         .pic { width: 100%; display: block; }
         .icon { --mdc-icon-size: 40px; color: var(--accent-color); display: flex; justify-content: center; }
+        .icon.resting { color: var(--state-inactive-color, var(--disabled-color)); }
         .head .icon { --mdc-icon-size: 40px; }
         .dim { opacity: .55; filter: grayscale(.5); }
 
@@ -1260,18 +1269,19 @@ class VesyncAirfryerCard extends HTMLElement {
           padding: 0 10px; cursor: pointer; border-radius: var(--ha-card-border-radius, 12px); }
         .row:hover { background: color-mix(in srgb, var(--primary-text-color) 4%, transparent); }
         .row:focus-visible { outline: 2px solid var(--primary-color); outline-offset: -2px; }
-        .row-icon { flex: none; width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center;
-          justify-content: center; overflow: hidden;
-          background: color-mix(in srgb, var(--accent-color) 20%, transparent); }
+        /* like the tiles around it: the icon stands free, the button is a rounded square */
+        .row-icon { flex: none; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; }
         .row-icon .icon { --mdc-icon-size: 24px; }
-        .row-icon img.pic { width: 100%; height: 100%; object-fit: cover; }
+        .row-icon img.pic { width: 36px; height: 36px; border-radius: 50%; object-fit: cover; }
         .row-info { flex: 1; min-width: 0; display: flex; flex-direction: column; }
         .row-name { font-size: 14px; font-weight: 500; line-height: 20px; color: var(--primary-text-color);
           white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         .row-state { font-size: 12px; line-height: 16px; color: var(--secondary-text-color);
           white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         .row-error { color: var(--error-color); }
-        .row .btn { flex: none; width: 36px; min-height: 36px; height: 36px; border-radius: 50%; }
+        .row .btn { flex: none; width: 48px; min-height: 36px; height: 36px; border: 0; border-radius: 12px;
+          background: color-mix(in srgb, var(--primary-text-color) 6%, transparent); }
+        .row .btn.primary { color: var(--primary-color); background: color-mix(in srgb, var(--primary-color) 20%, transparent); }
         .row-bar { position: absolute; left: 0; right: 0; bottom: 0; height: 3px; }
         .row-bar div { height: 100%; background: var(--accent-color); }
       </style>
