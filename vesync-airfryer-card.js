@@ -4,7 +4,7 @@
  * Colors and fonts come only from the Home Assistant theme.
  */
 
-const CARD_VERSION = "0.6.2";
+const CARD_VERSION = "0.6.3";
 
 const TEXT = {
   en: {
@@ -164,6 +164,11 @@ const KEY_ALIAS = {
   resume_cooking: "basket_resume",
   stop_cooking: "basket_stop",
 };
+
+// Everything from entities, the device registry and the card config goes through this
+// before it lands in the card's HTML.
+const esc = (s) =>
+  String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
 
 function normalizeKey(tk) {
   const key = tk.endsWith("_basket") ? tk.slice(0, -"_basket".length) : tk;
@@ -732,10 +737,10 @@ class VesyncAirfryerCard extends HTMLElement {
     const asking = confirm && this._confirm === entity;
     const compact = iconOnly && !asking;
     return `<button class="btn ${primary ? "primary" : ""} ${asking ? "ask" : ""} ${compact ? "icon-only" : ""}"
-      data-act="press" data-entity="${entity || ""}" title="${label}" aria-label="${label}"
+      data-act="press" data-entity="${esc(entity)}" title="${esc(label)}" aria-label="${esc(label)}"
       ${confirm ? 'data-confirm="1"' : ""} ${enabled && entity && !busy ? "" : "disabled"}>
-      <ha-icon icon="${busy ? "mdi:loading" : icon}" class="${busy ? "spin" : ""}"></ha-icon>
-      ${compact ? "" : `<span>${asking ? this._t("confirm_stop") : label}</span>`}</button>`;
+      <ha-icon icon="${busy ? "mdi:loading" : esc(icon)}" class="${busy ? "spin" : ""}"></ha-icon>
+      ${compact ? "" : `<span>${asking ? this._t("confirm_stop") : esc(label)}</span>`}</button>`;
   }
 
   // ---- recipes -------------------------------------------------------------
@@ -873,8 +878,8 @@ class VesyncAirfryerCard extends HTMLElement {
     const picker = helper
       ? `<div class="mode" role="group">${(helper.attributes.options || [])
           .map(
-            (o) => `<button data-act="basket-opt" data-value="${o}" class="${o === helper.state ? "on" : ""}"
-              aria-pressed="${o === helper.state}"><span>${o}</span></button>`
+            (o) => `<button data-act="basket-opt" data-value="${esc(o)}" class="${o === helper.state ? "on" : ""}"
+              aria-pressed="${o === helper.state}"><span>${esc(o)}</span></button>`
           )
           .join("")}</div>`
       : "";
@@ -883,10 +888,10 @@ class VesyncAirfryerCard extends HTMLElement {
         const st = hass.states[id];
         if (!st) return "";
         const running = st.state === "on" || this._busy.has(id);
-        return `<button class="recipe" data-act="recipe" data-entity="${id}">
-          <ha-icon icon="${running ? "mdi:loading" : st.attributes.icon || "mdi:chef-hat"}" class="${running ? "spin" : ""}"></ha-icon>
-          <span class="r-text"><span class="r-name">${st.attributes.friendly_name || id}</span>
-          <span class="r-detail">${this._recipeDetail(id)}</span></span>
+        return `<button class="recipe" data-act="recipe" data-entity="${esc(id)}">
+          <ha-icon icon="${running ? "mdi:loading" : esc(st.attributes.icon || "mdi:chef-hat")}" class="${running ? "spin" : ""}"></ha-icon>
+          <span class="r-text"><span class="r-name">${esc(st.attributes.friendly_name || id)}</span>
+          <span class="r-detail">${esc(this._recipeDetail(id))}</span></span>
           <ha-icon class="go" icon="${(this._recipeValues(id)?.startNow ?? this._direct) ? "mdi:play" : "mdi:send"}"></ha-icon></button>`;
       })
       .join("");
@@ -939,12 +944,12 @@ class VesyncAirfryerCard extends HTMLElement {
         values.sort((x, y) => x - y);
       }
       const options = values
-        .map((v) => `<option value="${v}" ${v === value ? "selected" : ""}>${this._fmt(v, unit)}</option>`)
+        .map((v) => `<option value="${esc(v)}" ${v === value ? "selected" : ""}>${esc(this._fmt(v, unit))}</option>`)
         .join("");
-      return `<select class="pick" data-act="value" data-entity="${entity}" aria-label="${label}" ${off}>${options}</select>`;
+      return `<select class="pick" data-act="value" data-entity="${esc(entity)}" aria-label="${esc(label)}" ${off}>${options}</select>`;
     }
-    return `<label class="val"><input data-act="type" data-entity="${entity}" type="text" inputmode="numeric" pattern="[0-9]*"
-        value="${value}" aria-label="${label}" ${off}><span class="unit">${unit}</span></label>`;
+    return `<label class="val"><input data-act="type" data-entity="${esc(entity)}" type="text" inputmode="numeric" pattern="[0-9]*"
+        value="${esc(value)}" aria-label="${esc(label)}" ${off}><span class="unit">${esc(unit)}</span></label>`;
   }
 
   _stepper(entity, enabled) {
@@ -955,9 +960,9 @@ class VesyncAirfryerCard extends HTMLElement {
     const unit = st.attributes.unit_of_measurement || "";
     const off = enabled ? "" : "disabled";
     return `<div class="stepper">
-      <button data-act="step" data-entity="${entity}" data-dir="-1" ${off} aria-label="-"><ha-icon icon="mdi:minus"></ha-icon></button>
+      <button data-act="step" data-entity="${esc(entity)}" data-dir="-1" ${off} aria-label="-"><ha-icon icon="mdi:minus"></ha-icon></button>
       ${this._valueField(entity, st, value, unit, off)}
-      <button data-act="step" data-entity="${entity}" data-dir="1" ${off} aria-label="+"><ha-icon icon="mdi:plus"></ha-icon></button>
+      <button data-act="step" data-entity="${esc(entity)}" data-dir="1" ${off} aria-label="+"><ha-icon icon="mdi:plus"></ha-icon></button>
     </div>`;
   }
 
@@ -967,10 +972,10 @@ class VesyncAirfryerCard extends HTMLElement {
     const options = (st.attributes.options || [])
       .map(
         (o) =>
-          `<option value="${o}" ${o === st.state ? "selected" : ""}>${this._hass.formatEntityState(st, o)}</option>`
+          `<option value="${esc(o)}" ${o === st.state ? "selected" : ""}>${esc(this._hass.formatEntityState(st, o))}</option>`
       )
       .join("");
-    return `<select data-act="select" data-entity="${entity}" ${enabled ? "" : "disabled"}>${options}</select>`;
+    return `<select data-act="select" data-entity="${esc(entity)}" ${enabled ? "" : "disabled"}>${options}</select>`;
   }
 
   _basket(n) {
@@ -990,7 +995,7 @@ class VesyncAirfryerCard extends HTMLElement {
     const picture = this._img(f.s === "pull_out" ? img.basket_out : img.basket, n);
     const dim = f.s === "standby" && !f.hasValues ? "dim" : "";
     const visual = picture
-      ? `<img class="pic ${dim}" src="${picture}" alt="">`
+      ? `<img class="pic ${dim}" src="${esc(picture)}" alt="">`
       : `<ha-icon class="pic icon ${dim}" icon="mdi:tray-full"></ha-icon>`;
 
     // fixed slots: A = Start or Send (per switch) / Pause / Resume, B = Stop
@@ -1009,7 +1014,7 @@ class VesyncAirfryerCard extends HTMLElement {
         <div class="visual">${visual}</div>
         <div class="text">
           <div class="title">${this._t("basket", { n })} · ${this._t(n === "1" ? "top" : "bottom")}</div>
-          <div class="status" style="color:${color}">${hass.formatEntityState(status)}</div>
+          <div class="status" style="color:${color}">${esc(hass.formatEntityState(status))}</div>
           ${lines.length ? `<div class="details">${lines.join("<br>")}</div>` : ""}
         </div>
         <div class="actions">
@@ -1033,7 +1038,7 @@ class VesyncAirfryerCard extends HTMLElement {
   _deviceVisual(dev) {
     const pic = this._config.images?.device;
     return pic
-      ? `<img class="pic" src="${pic}" alt="">`
+      ? `<img class="pic" src="${esc(pic)}" alt="">`
       : `<ha-icon class="pic icon ${RESTING.includes(dev.key) ? "resting" : ""}" icon="mdi:french-fries"></ha-icon>`;
   }
 
@@ -1042,8 +1047,8 @@ class VesyncAirfryerCard extends HTMLElement {
     return `
       <div class="head">
         <div class="visual">${this._deviceVisual(dev)}</div>
-        <div class="name">${this._name}</div>
-        <div class="sub" style="color:${this._color(dev.baskets[0])}">${this._deviceText(dev)}</div>
+        <div class="name">${esc(this._name)}</div>
+        <div class="sub" style="color:${this._color(dev.baskets[0])}">${esc(this._deviceText(dev))}</div>
       </div>`;
   }
 
@@ -1080,14 +1085,14 @@ class VesyncAirfryerCard extends HTMLElement {
       btn = this._btn({ label: this._t("resume"), icon: "mdi:play", entity: entities("resume_all", "basket_resume"), enabled: true, iconOnly: true });
     }
     return `
-      <div class="row" data-act="row" role="button" tabindex="0" aria-label="${this._name}">
+      <div class="row" data-act="row" role="button" tabindex="0" aria-label="${esc(this._name)}">
         <div class="row-icon">${this._deviceVisual(dev)}</div>
         <div class="row-info">
-          <div class="row-name">${this._name}</div>
+          <div class="row-name">${esc(this._name)}</div>
           <div class="row-state">${this._message
-            ? `<span class="row-error">${this._message}</span>`
-            : `<span style="color:${this._color(dev.baskets[0])}">${this._deviceText(dev)}</span>${
-              parts.length ? ` · ${parts.join(" · ")}` : ""}`}</div>
+            ? `<span class="row-error">${esc(this._message)}</span>`
+            : `<span style="color:${this._color(dev.baskets[0])}">${esc(this._deviceText(dev))}</span>${
+              parts.length ? ` · ${esc(parts.join(" · "))}` : ""}`}</div>
         </div>
         ${btn}
       </div>
@@ -1164,7 +1169,7 @@ class VesyncAirfryerCard extends HTMLElement {
     // The Start/Send switch only matters when the integration's Start buttons are enabled.
     const canStart = !!(this._ent("basket_start", 1) || this._ent("start_both"));
     if (!hide.includes("settings") && canStart) body += this._settings();
-    return body + `<div class="msg">${this._message}</div>`;
+    return body + `<div class="msg">${esc(this._message)}</div>`;
   }
 
   _render() {
