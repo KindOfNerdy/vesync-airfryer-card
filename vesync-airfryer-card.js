@@ -1,10 +1,10 @@
 /*
  * VeSync Air Fryer Card
- * Control card for dual-basket VeSync air fryers (entities of the vesync integration).
+ * Control card for VeSync air fryers with one or two baskets (entities of the vesync integration).
  * Colors and fonts come only from the Home Assistant theme.
  */
 
-const CARD_VERSION = "0.6.3";
+const CARD_VERSION = "0.7.0-beta.1";
 
 const TEXT = {
   en: {
@@ -436,6 +436,18 @@ class VesyncAirfryerCard extends HTMLElement {
     return slot ? slot[basket] || slot.device : undefined;
   }
 
+  // Basket numbers of the appliance. A fryer with one basket has entities without a
+  // number; it counts as basket "1" (_ent falls back to the unnumbered entity).
+  _baskets() {
+    const slot = this._found?.entities?.cook_status || {};
+    const numbered = ["1", "2"].filter((n) => slot[n]);
+    return numbered.length ? numbered : ["1"];
+  }
+
+  get _single() {
+    return this._baskets().length === 1;
+  }
+
   _state(tk, basket) {
     const id = this._ent(tk, basket);
     return id ? this._hass.states[id] : undefined;
@@ -617,7 +629,7 @@ class VesyncAirfryerCard extends HTMLElement {
   // ---- overall status ------------------------------------------------------
 
   _device() {
-    return deviceStatus([this._flags("1"), this._flags("2")]);
+    return deviceStatus(this._baskets().map((n) => this._flags(n)));
   }
 
   // The basket status entity that stands for the appliance (more-info, text).
@@ -704,7 +716,7 @@ class VesyncAirfryerCard extends HTMLElement {
       if (Number(hass.states[entity]?.state) === value) delete this._pending[entity];
     }
     // translated texts can arrive after the first render, so they are part of the signature
-    const shown = ["1", "2"].map((n) => {
+    const shown = this._baskets().map((n) => {
       const st = this._state("cook_status", n);
       return st ? hass.formatEntityState(st) : "";
     });
@@ -1008,23 +1020,29 @@ class VesyncAirfryerCard extends HTMLElement {
           ? { label: this._t("start"), icon: "mdi:play", entity: this._ent("basket_start", n), enabled: f.idle }
           : { label: this._t("send"), icon: "mdi:send", entity: this._ent("basket_send", n), enabled: f.idle };
     const slotB = { label: this._t("stop"), icon: "mdi:stop", entity: this._ent("basket_stop", n), enabled: f.stoppable, confirm: true };
+    // The form needs the integration's program, temperature and time entities.
+    const form = ["basket_program", "basket_temperature", "basket_time"].map((tk) => this._ent(tk, n));
+    // With one basket this block stands for the appliance and carries its name.
+    const title = this._single
+      ? esc(this._name)
+      : `${this._t("basket", { n })} · ${this._t(n === "1" ? "top" : "bottom")}`;
 
     return `
       <div class="basket" data-basket="${n}">
         <div class="visual">${visual}</div>
         <div class="text">
-          <div class="title">${this._t("basket", { n })} · ${this._t(n === "1" ? "top" : "bottom")}</div>
+          <div class="title">${title}</div>
           <div class="status" style="color:${color}">${esc(hass.formatEntityState(status))}</div>
           ${lines.length ? `<div class="details">${lines.join("<br>")}</div>` : ""}
         </div>
         <div class="actions">
           ${slotB.enabled ? this._btn({ ...slotB, iconOnly: true }) : ""}
-          ${this._btn({ ...slotA, primary: true, iconOnly: true })}
+          ${slotA.entity ? this._btn({ ...slotA, primary: true, iconOnly: true }) : ""}
         </div>
-        ${this._hide.includes("form") ? "" : `<div class="form">
-          ${this._select(this._ent("basket_program", n), f.idle)}
-          ${this._stepper(this._ent("basket_temperature", n), f.idle)}
-          ${this._stepper(this._ent("basket_time", n), f.idle)}
+        ${this._hide.includes("form") || !form.some(Boolean) ? "" : `<div class="form">
+          ${this._select(form[0], f.idle)}
+          ${this._stepper(form[1], f.idle)}
+          ${this._stepper(form[2], f.idle)}
         </div>`}
         ${timing ? `<div class="bar"><div style="width:${timing.pct}%"></div></div>` : ""}
       </div>`;
@@ -1100,6 +1118,9 @@ class VesyncAirfryerCard extends HTMLElement {
   }
 
   _both() {
+    // needs two baskets and the integration's entities for both of them
+    const keys = ["start_mode", "start_both", "send_both", "pause_all", "resume_all", "stop_all", "quit_sync"];
+    if (this._single || !keys.some((tk) => this._ent(tk))) return "";
     const f1 = this._flags("1");
     const f2 = this._flags("2");
     if (!f1 || !f2) return "";
@@ -1161,8 +1182,9 @@ class VesyncAirfryerCard extends HTMLElement {
     const hide = this._hide;
     let body = "";
     if (mode !== "recipes") {
-      if (!hide.includes("header")) body += this._header();
-      body += `<div class="baskets">${this._basket("1")}${this._basket("2")}</div>`;
+      // one basket: its block carries the name and status, so there is no separate header
+      if (!hide.includes("header") && !this._single) body += this._header();
+      body += `<div class="baskets">${this._baskets().map((n) => this._basket(n)).join("")}</div>`;
       if (!hide.includes("both")) body += this._both();
     }
     if (mode !== "control") body += this._recipes();
@@ -1299,7 +1321,7 @@ window.customCards = window.customCards || [];
 window.customCards.push({
   type: "vesync-airfryer-card",
   name: "VeSync Air Fryer Card",
-  description: "Control card for dual-basket VeSync air fryers (full, control only, recipes only or one row).",
+  description: "Control card for VeSync air fryers with one or two baskets (full, control only, recipes only or one row).",
   preview: false,
   documentationURL: "https://github.com/KindOfNerdy/vesync-airfryer-card",
 });
